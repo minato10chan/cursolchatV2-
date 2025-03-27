@@ -13,6 +13,25 @@ import datetime
 # 最初のStreamlitコマンドとしてページ設定を行う
 st.set_page_config(page_title='🦜🔗 Ask the Doc App', layout="wide")
 
+# 必要なインポート
+from langchain_openai import OpenAI
+from langchain import hub
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_community.document_loaders import TextLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+import tempfile
+import os
+import pandas as pd
+import io
+
+# カスタムモジュールのインポート
+from components.llm import llm, oai_embeddings
+from components.categories import MAJOR_CATEGORIES, MEDIUM_CATEGORIES
+from components.prompts import RAG_PROMPT_TEMPLATE
+from components.chat_history import ChatHistory
+
 # セッション状態の初期化
 if 'documents' not in st.session_state:
     st.session_state.documents = []
@@ -27,29 +46,6 @@ if 'custom_prompts' not in st.session_state:
     ]
 if 'selected_prompt' not in st.session_state:
     st.session_state.selected_prompt = 'デフォルト'
-
-from langchain_openai import OpenAI
-from langchain import hub
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
-from langchain_core.prompts import ChatPromptTemplate
-# --- LLM --- (componentsフォルダにllm.pyを配置する)---
-from components.llm import llm
-from components.llm import oai_embeddings
-# --- LLM ---
-from langchain_community.document_loaders import TextLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-import tempfile
-import os
-import pandas as pd
-# ChromaDBとVectorStoreのインポートは後で行う (SQLite修正後)
-import io
-# カテゴリ定義のインポート
-from components.categories import MAJOR_CATEGORIES, MEDIUM_CATEGORIES
-# プロンプトテンプレートのインポート
-from components.prompts import RAG_PROMPT_TEMPLATE
-# チャット履歴管理のインポート
-from components.chat_history import ChatHistory
 
 # グローバル変数の初期化
 vector_store = None

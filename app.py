@@ -329,8 +329,6 @@ def manage_prompts():
                 if st.button("更新", key=f"update_{i}"):
                     st.session_state.custom_prompts[i]['name'] = edited_name
                     st.session_state.custom_prompts[i]['content'] = edited_content
-                    if st.session_state.selected_prompt == prompt['name']:
-                        st.session_state.selected_prompt = edited_name
                     st.success(f"プロンプト '{edited_name}' を更新しました。")
             with col2:
                 if st.button("削除", key=f"delete_{i}") and len(st.session_state.custom_prompts) > 1:
@@ -345,14 +343,9 @@ def manage_prompts():
     selected_prompt = st.selectbox(
         "プロンプトを選択してください",
         prompt_names,
-        index=prompt_names.index(st.session_state.selected_prompt),
-        key="prompt_selector"  # 一意のキーを追加
+        index=prompt_names.index(st.session_state.selected_prompt)
     )
-    
-    # 選択が変更された場合のみ更新
-    if selected_prompt != st.session_state.selected_prompt:
-        st.session_state.selected_prompt = selected_prompt
-        st.success(f"プロンプト '{selected_prompt}' を選択しました。")
+    st.session_state.selected_prompt = selected_prompt
 
 # RAGを使ったLLM回答生成
 def generate_response(query_text, filter_conditions=None):
@@ -368,11 +361,8 @@ def generate_response(query_text, filter_conditions=None):
             # グローバルのVectorStoreインスタンスを使用
             global vector_store
 
-            # 選択されたプロンプトを取得（セッション状態から直接取得）
-            selected_prompt = st.session_state.custom_prompts[
-                next(i for i, p in enumerate(st.session_state.custom_prompts) 
-                     if p['name'] == st.session_state.selected_prompt)
-            ]
+            # 選択されたプロンプトを取得
+            selected_prompt = next(p for p in st.session_state.custom_prompts if p['name'] == st.session_state.selected_prompt)
             prompt = ChatPromptTemplate.from_template(selected_prompt['content'])
 
             def format_docs(docs):
@@ -418,6 +408,12 @@ def generate_response(query_text, filter_conditions=None):
                 meta_info.append(f"{i+1}. {meta_str}")
             
             st.markdown("\n".join(meta_info))
+
+            # 使用するプロンプトを表示
+            st.markdown("#### 使用するプロンプト")
+            st.markdown(f"**プロンプト名**: {selected_prompt['name']}")
+            with st.expander("プロンプト内容を表示"):
+                st.text(selected_prompt['content'])
 
             # 会話履歴を取得
             chat_history_text = chat_history.get_formatted_history()

@@ -18,6 +18,15 @@ if 'documents' not in st.session_state:
     st.session_state.documents = []
 if 'vector_store' not in st.session_state:
     st.session_state.vector_store = None
+if 'custom_prompts' not in st.session_state:
+    st.session_state.custom_prompts = [
+        {
+            'name': 'デフォルト',
+            'content': RAG_PROMPT_TEMPLATE
+        }
+    ]
+if 'selected_prompt' not in st.session_state:
+    st.session_state.selected_prompt = 'デフォルト'
 
 from langchain_openai import OpenAI
 from langchain import hub
@@ -291,6 +300,57 @@ def manage_chromadb():
                 st.error("エラーの詳細:")
                 st.exception(e)
 
+def manage_prompts():
+    """
+    プロンプトを管理するページの関数。
+    """
+    st.header("プロンプト管理")
+
+    # プロンプトの追加
+    st.subheader("新しいプロンプトの追加")
+    new_prompt_name = st.text_input("プロンプト名", "")
+    new_prompt_content = st.text_area("プロンプト内容", height=300)
+    
+    if st.button("プロンプトを追加") and new_prompt_name and new_prompt_content:
+        if len(st.session_state.custom_prompts) >= 3:
+            st.error("プロンプトは最大3つまで登録できます。")
+        else:
+            st.session_state.custom_prompts.append({
+                'name': new_prompt_name,
+                'content': new_prompt_content
+            })
+            st.success(f"プロンプト '{new_prompt_name}' を追加しました。")
+
+    # プロンプトの一覧表示と編集
+    st.subheader("登録済みプロンプト")
+    for i, prompt in enumerate(st.session_state.custom_prompts):
+        with st.expander(f"プロンプト: {prompt['name']}", expanded=False):
+            edited_name = st.text_input("プロンプト名", prompt['name'], key=f"name_{i}")
+            edited_content = st.text_area("プロンプト内容", prompt['content'], height=300, key=f"content_{i}")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("更新", key=f"update_{i}"):
+                    st.session_state.custom_prompts[i]['name'] = edited_name
+                    st.session_state.custom_prompts[i]['content'] = edited_content
+                    st.success(f"プロンプト '{edited_name}' を更新しました。")
+            with col2:
+                if st.button("削除", key=f"delete_{i}") and len(st.session_state.custom_prompts) > 1:
+                    st.session_state.custom_prompts.pop(i)
+                    if st.session_state.selected_prompt == prompt['name']:
+                        st.session_state.selected_prompt = st.session_state.custom_prompts[0]['name']
+                    st.success(f"プロンプト '{prompt['name']}' を削除しました。")
+
+    # プロンプトの選択
+    st.subheader("使用するプロンプトの選択")
+    prompt_names = [p['name'] for p in st.session_state.custom_prompts]
+    selected_prompt = st.selectbox(
+        "プロンプトを選択してください",
+        prompt_names,
+        index=prompt_names.index(st.session_state.selected_prompt)
+    )
+    st.session_state.selected_prompt = selected_prompt
+
 # RAGを使ったLLM回答生成
 def generate_response(query_text, filter_conditions=None):
     """
@@ -305,15 +365,9 @@ def generate_response(query_text, filter_conditions=None):
             # グローバルのVectorStoreインスタンスを使用
             global vector_store
 
-            # カスタムプロンプトテンプレートを作成
-            try:
-                # まずhub.pullを試す（langchainhubがインストールされている場合）
-                prompt = hub.pull("rlm/rag-prompt")
-                print("Successfully pulled prompt from langchain hub")
-            except (ImportError, Exception) as e:
-                # 失敗した場合は自前のプロンプトを使用
-                print(f"Using custom prompt template due to: {e}")
-                prompt = ChatPromptTemplate.from_template(RAG_PROMPT_TEMPLATE)
+            # 選択されたプロンプトを取得
+            selected_prompt = next(p for p in st.session_state.custom_prompts if p['name'] == st.session_state.selected_prompt)
+            prompt = ChatPromptTemplate.from_template(selected_prompt['content'])
 
             def format_docs(docs):
                 return "\n\n".join(doc.page_content for doc in docs)
@@ -502,13 +556,15 @@ def main():
 
     # サイドバーでページ選択
     st.sidebar.title("メニュー")
-    page = st.sidebar.radio("ページを選択してください", ["ChromaDB 管理", "質問する",])
+    page = st.sidebar.radio("ページを選択してください", ["ChromaDB 管理", "質問する", "プロンプト管理"])
 
     # 各ページへ移動
     if page == "質問する":
         ask_question()
     elif page == "ChromaDB 管理":
         manage_chromadb()
+    elif page == "プロンプト管理":
+        manage_prompts()
 
 if __name__ == "__main__":
     main()
